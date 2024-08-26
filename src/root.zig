@@ -25,6 +25,34 @@ pub fn isTuple(comptime T: type) bool {
     };
 }
 
+pub fn isInErrorSet(comptime E: type, err: anyerror) bool {
+    if (err == error.Unknown) return false;
+
+    const es = @typeInfo(E).ErrorSet
+        orelse [0]std.builtin.Type.Error {};
+
+    inline for (es) |e| {
+        const err2 = @field(E, e.name);
+        if (err == err2) return true;
+    }
+
+    return false;
+}
+
+pub fn narrowErrorSet(comptime E: type, err: anyerror) ?E {
+    if (err == error.Unknown) return null;
+
+    const es = @typeInfo(E).ErrorSet
+        orelse [0]std.builtin.Type.Error {};
+
+    inline for (es) |e| {
+        const err2 = @field(E, e.name);
+        if (err == err2) return err2;
+    }
+
+    return null;
+}
+
 const MAX_DECLS = 10_000;
 
 pub fn structConcat(subs: anytype) StructConcat(@TypeOf(subs)) {
