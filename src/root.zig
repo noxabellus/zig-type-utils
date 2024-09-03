@@ -2,7 +2,7 @@ const std = @import("std");
 
 pub fn isString(comptime T: type) bool {
     switch (@typeInfo(T)) {
-        .Pointer => |ptr| {
+        .pointer => |ptr| {
             if (ptr.size == .One) return isString(ptr.child);
 
             if (ptr.size == .Many or ptr.size == .C) {
@@ -11,7 +11,7 @@ pub fn isString(comptime T: type) bool {
 
             return ptr.child == u8;
         },
-        .Array => |arr| {
+        .array => |arr| {
             return arr.child == u8;
         },
         else => return false,
@@ -20,7 +20,7 @@ pub fn isString(comptime T: type) bool {
 
 pub fn isTuple(comptime T: type) bool {
     return switch (@typeInfo(T)) {
-        .Struct => |s| s.is_tuple,
+        .@"struct" => |s| s.is_tuple,
         else => false,
     };
 }
@@ -28,7 +28,7 @@ pub fn isTuple(comptime T: type) bool {
 pub fn isInErrorSet(comptime E: type, err: anyerror) bool {
     if (err == error.Unknown) return false;
 
-    const es = @typeInfo(E).ErrorSet
+    const es = @typeInfo(E).error_set
         orelse [0]std.builtin.Type.Error {};
 
     inline for (es) |e| {
@@ -42,7 +42,7 @@ pub fn isInErrorSet(comptime E: type, err: anyerror) bool {
 pub fn narrowErrorSet(comptime E: type, err: anyerror) ?E {
     if (err == error.Unknown) return null;
 
-    const es = @typeInfo(E).ErrorSet
+    const es = @typeInfo(E).error_set
         orelse [0]std.builtin.Type.Error {};
 
     inline for (es) |e| {
@@ -82,38 +82,38 @@ pub fn StructConcat(comptime subs: type) type {
     comptime var fullIndex: comptime_int = 0;
 
     const subsInfo = @typeInfo(subs);
-    if (subsInfo != .Struct or !subsInfo.Struct.is_tuple) {
+    if (subsInfo != .@"struct" or !subsInfo.@"struct".is_tuple) {
         @compileLog(subs);
         @compileError("Expected tuple struct for struct concat");
     }
-    const subsFields = subsInfo.Struct.fields;
+    const subsFields = subsInfo.@"struct".fields;
 
     var tuple = false;
 
     if (subsFields.len > 0) {
         const firstT = subsFields[0].type;
         const firstInfo = @typeInfo(firstT);
-        if (firstInfo != .Struct) {
+        if (firstInfo != .@"struct") {
             @compileLog(firstT);
             @compileError("Expected struct for struct concat");
         }
-        tuple = firstInfo.Struct.is_tuple;
+        tuple = firstInfo.@"struct".is_tuple;
 
         for (subsFields) |sub| {
             const structT = sub.type;
             const structInfo = @typeInfo(structT);
 
-            if (structInfo != .Struct) {
+            if (structInfo != .@"struct") {
                 @compileLog(structT);
                 @compileError("Expected struct for struct concat");
             }
 
-            const structFields = structInfo.Struct.fields;
+            const structFields = structInfo.@"struct".fields;
 
-            if (structInfo.Struct.is_tuple != tuple) {
+            if (structInfo.@"struct".is_tuple != tuple) {
                 if (structFields.len != 0) {
                     @compileLog(firstT, tuple);
-                    @compileLog(structT, structInfo.Struct.is_tuple);
+                    @compileLog(structT, structInfo.@"struct".is_tuple);
                     @compileError("Expected all fields to have the same tuple-ness");
                 }
             }
@@ -132,7 +132,7 @@ pub fn StructConcat(comptime subs: type) type {
         }
     }
 
-    return @Type(std.builtin.Type { .Struct = .{
+    return @Type(std.builtin.Type { .@"struct" = .{
         .layout = .auto,
         .backing_integer = null,
         .fields = fullFields[0..fullIndex],
