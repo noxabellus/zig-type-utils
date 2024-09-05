@@ -55,8 +55,8 @@ pub fn narrowErrorSet(comptime E: type, err: anyerror) ?E {
 
 const MAX_DECLS = 10_000;
 
-pub fn structConcat(subs: anytype) StructConcat(@TypeOf(subs)) {
-    const Out = StructConcat(@TypeOf(subs));
+pub fn structConcat(subs: anytype) TypeOfStructConcat(@TypeOf(subs)) {
+    const Out = TypeOfStructConcat(@TypeOf(subs));
 
     var full: Out = undefined;
     comptime var fullIndex: comptime_int = 0;
@@ -77,7 +77,63 @@ pub fn structConcat(subs: anytype) StructConcat(@TypeOf(subs)) {
     return full;
 }
 
-pub fn StructConcat(comptime subs: type) type {
+pub fn StructConcat(comptime subs: anytype) type {
+    comptime var fullFields = ([1]std.builtin.Type.StructField {undefined}) ** MAX_DECLS;
+    comptime var fullIndex: comptime_int = 0;
+
+    var tuple = false;
+
+    if (subs.len > 0) {
+        const firstT = subs[0];
+        const firstInfo = @typeInfo(firstT);
+        if (firstInfo != .@"struct") {
+            @compileLog(firstT);
+            @compileError("Expected struct for struct concat");
+        }
+        tuple = firstInfo.@"struct".is_tuple;
+
+        for (subs) |structT| {
+            const structInfo = @typeInfo(structT);
+
+            if (structInfo != .@"struct") {
+                @compileLog(structT);
+                @compileError("Expected struct for struct concat");
+            }
+
+            const structFields = structInfo.@"struct".fields;
+
+            if (structInfo.@"struct".is_tuple != tuple) {
+                if (structFields.len != 0) {
+                    @compileLog(firstT, tuple);
+                    @compileLog(structT, structInfo.@"struct".is_tuple);
+                    @compileError("Expected all fields to have the same tuple-ness");
+                }
+            }
+
+            for (structFields) |structField| {
+                fullFields[fullIndex] = std.builtin.Type.StructField {
+                    .name = if (tuple) std.fmt.comptimePrint("{}", .{fullIndex}) else structField.name,
+                    .type = structField.type,
+                    .default_value = structField.default_value,
+                    .is_comptime = false,
+                    .alignment = @alignOf(structField.type),
+                };
+
+                fullIndex += 1;
+            }
+        }
+    }
+
+    return @Type(std.builtin.Type { .@"struct" = .{
+        .layout = .auto,
+        .backing_integer = null,
+        .fields = fullFields[0..fullIndex],
+        .decls = &[0]std.builtin.Type.Declaration {},
+        .is_tuple = tuple,
+    } });
+}
+
+pub fn TypeOfStructConcat(comptime subs: type) type {
     comptime var fullFields = ([1]std.builtin.Type.StructField {undefined}) ** MAX_DECLS;
     comptime var fullIndex: comptime_int = 0;
 
